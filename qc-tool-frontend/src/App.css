@@ -1,0 +1,62 @@
+.App {
+  text-align: center;
+  padding: 20px;
+}
+
+button {
+  margin: 10px;
+}
+
+input {
+  margin-bottom: 20px;
+}
+
+div {
+  margin-top: 20px;
+}
+
+.spell-error {
+  background-color: yellow;
+  cursor: pointer;
+}
+
+.grammar-error {
+  background-color: orange;
+  cursor: pointer;
+}
+
+.error {
+  color: red;
+}
+
+.errors-block {
+  margin-top: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #f9f9f9;
+}
+
+.errors-block h4 {
+  margin: 0 0 10px;
+}
+
+.errors-block ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.highlight {
+  font-weight: bold;
+}
+
+.spelling-error {
+  background-color: yellow; /* Highlight spelling mistakes */
+}
+
+.grammar-error {
+  background-color: lightblue; /* Highlight grammar mistakes */
+}
+
+
+
