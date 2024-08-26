@@ -1,43 +1,52 @@
+from venv import logger
+import pdfplumber
 from spellchecker import SpellChecker
 from grammarbot import GrammarBotClient
 import io
-from PyPDF2 import PdfReader
+from io import BytesIO
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
 
 spell = SpellChecker()
 grammar_client = GrammarBotClient()
 
-def pdf_to_text(file_obj):
-    reader = PdfReader(io.BytesIO(file_obj.read()))
+def pdf_to_text_exact_layout(file_obj):
     text = ''
-    for page in reader.pages:
-        text += page.extract_text() + '\n'
+    try:
+        with pdfplumber.open(file_obj) as pdf:
+            for page in pdf.pages:
+                
+                page_text = page.extract_text(x_tolerance=1, y_tolerance=1)
+                if page_text:
+                    text += page_text + '\n'
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {e}")
+        raise
     return text
 
-
 def check_spelling(text):
-    spell = SpellChecker()
+    if not text.strip():  
+        return []
+
     words = text.split()
     errors = []
 
     for word in words:
         if spell.unknown([word]):
             suggestions = spell.candidates(word)
-            if suggestions:  # Check if suggestions is not empty or None
-                errors.append({
-                    'word': word,
-                    'suggestions': list(suggestions)
-                })
-            else:
-                # If there are no suggestions, you can choose to handle it in a way that fits your needs
-                errors.append({
-                    'word': word,
-                    'suggestions': []  # Empty list if no suggestions found
-                })
+            errors.append({
+                'word': word,
+                'suggestions': list(suggestions) if suggestions else []
+            })
 
-    return errors if errors else []  # Ensure it returns an empty list instead of None
-
+    return errors
 
 def check_grammar(text):
+    if not text.strip():  
+        return []
+
     try:
         res = grammar_client.check(text)
         errors = []
@@ -50,5 +59,24 @@ def check_grammar(text):
             })
         return errors
     except Exception as e:
-        print(f"Grammar check error: {e}")
+        logger.error(f"Grammar check error: {e}")
         return []
+    
+
+
+
+@api_view(['POST'])
+@csrf_exempt
+def generate_pdf(request):
+    text = request.data.get('text', '')
+
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer)
+    p.drawString(100, 750, text)
+    p.showPage()
+    p.save()
+
+    buffer.seek(0)
+    return HttpResponse(buffer, as_attachment=True, content_type='application/pdf',
+                         headers={'Content-Disposition': 'attachment; filename="edited_document.pdf"'})
+

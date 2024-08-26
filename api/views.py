@@ -1,11 +1,17 @@
+import io
+from PyPDF2 import PdfReader 
+import pdfplumber
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser ,FormParser
 from rest_framework import status
-from .utils import pdf_to_text, check_spelling, check_grammar
+from .utils import pdf_to_text_exact_layout, check_spelling, check_grammar
 import logging
-from PyPDF2 import PdfReader 
-import io
+from django.http import JsonResponse
+from io import BytesIO
+from django.http import HttpResponse
+from rest_framework.decorators import api_view
+from reportlab.pdfgen import canvas
 
 logger = logging.getLogger(__name__)
 
@@ -15,24 +21,32 @@ def pdf_to_text(file_obj, page_number):
     return text, len(reader.pages)
 
 class PDFUploadView(APIView):
-    parser_classes = [MultiPartParser]
+    parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
-        try:
-            file_obj = request.FILES['file']
-            page_number = int(request.data.get('page', 1))
-            text, total_pages = pdf_to_text(file_obj, page_number)
-            return Response({'text': text, 'total_pages': total_pages})
-        except Exception as e:
-            logger.error(f"Error processing PDF: {e}")
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
+        file_obj = request.FILES.get('file')
+        page_number = int(request.POST.get('page', 1))  
 
+        if not file_obj:
+            return JsonResponse({'error': 'No file uploaded'}, status=400)
+
+        try: 
+            with pdfplumber.open(file_obj) as pdf:
+                if page_number < 1 or page_number > len(pdf.pages):
+                    return JsonResponse({'error': 'Page number out of range'}, status=400)
+
+                page = pdf.pages[page_number - 1]
+                text = page.extract_text(x_tolerance=1, y_tolerance=1) or ''
+                return JsonResponse({'text': text, 'total_pages': len(pdf.pages)})
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+        
 class SpellCheckView(APIView):
     def post(self, request, *args, **kwargs):
         text = request.data.get('text', "")
         corrected_text = check_spelling(text)
-        return Response({'errors': corrected_text})  
+        return Response({'errors': corrected_text})
 
 
 class GrammarCheckView(APIView):
@@ -45,4 +59,26 @@ class GrammarCheckView(APIView):
         except Exception as e:
             logger.error(f"Failed to check grammar: {e}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
+@api_view(['POST'])
+def generate_pdf(request):
+    try:
+        text = request.data.get('text', '')
+        if not text:
+            return HttpResponse("No text provided.", status=400)
+        
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer)
+        p.drawString(100, 750, text)
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="edited_document.pdf"'
+        return response
+    except Exception as e:
+        return HttpResponse(f"Error generating PDF: {e}", status=500)
         

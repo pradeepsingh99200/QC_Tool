@@ -4,7 +4,7 @@ import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
-function PDFViewer({ file }) {
+function PDFViewer({ file, pageNumber }) {
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
     return (
@@ -14,6 +14,7 @@ function PDFViewer({ file }) {
                     <Viewer
                         fileUrl={file}
                         plugins={[defaultLayoutPluginInstance]}
+                        initialPage={pageNumber - 0} // Page number starts from 0 in PDF.js
                     />
                 ) : (
                     <p>No PDF file selected</p>
