@@ -66,19 +66,20 @@ class GrammarCheckView(APIView):
 def generate_pdf(request):
     try:
         text = request.data.get('text', '')
-        if not text:
-            return HttpResponse("No text provided.", status=400)
-        
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer)
-        p.drawString(100, 750, text)
-        p.showPage()
-        p.save()
+        edits = request.data.get('edits', [])  
 
-        buffer.seek(0)
-        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="edited_document.pdf"'
-        return response
-    except Exception as e:
-        return HttpResponse(f"Error generating PDF: {e}", status=500)
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize= letter )
+        c.drawString(100, 750, text)
         
+        for edit in edits:
+            x, y, comment = edit['x'], edit['y'], edit['comment']
+            c.drawString(x, y, comment) 
+
+        c.showPage()    
+        c.save()
+        
+        buffer.seek(0)
+        return HttpResponse(buffer, content_type='application/pdf')
+    except Exception as e:
+        return HttpResponse(f"Error generating PDF: {str(e)}", status=500)

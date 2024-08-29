@@ -13,7 +13,7 @@ function TextEditor({ initialText }) {
 
     return (
         <Editor
-            editorState={editorState}
+                editorState={editorState}
             onChange={setEditorState}
         />
     );
